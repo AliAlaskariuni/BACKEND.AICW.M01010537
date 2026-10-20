@@ -3,8 +3,15 @@ var express = require("express"); // Requires the Express module
 var app = express();
 var cors=require("cors");
 app.use(cors());
-app.use(function(request, response) { // middleware
-console.log("In comes a request to: " + request.url);
+app.use(express.json());
+
+var orders = [];
+
+//app.use(function(request, response) { // middleware
+//console.log("In comes a request to: " + request.url);
+app.get("/lessons", function(request, response) {
+
+// lessons for front end to pull form
 lessons =  [{ 
     
 id: 1, subject: "Mathematics", location: "Room A1", price: 25, availability: 5 },
@@ -17,8 +24,36 @@ id: 1, subject: "Mathematics", location: "Room A1", price: 25, availability: 5 }
 { id: 8, subject: "Biology", location: "Science Lab", price: 27, availability: 5 },
 { id: 9, subject: "History", location: "Room E5", price: 18, availability: 5 },
 { id: 10, subject: "Drama", location: "Theatre Room", price: 23, availability: 5 }]
+
+
+
+
+// responses with json encoding lessons
 response.json(lessons);
 });
+
+app.post("/orders", function(request, response) {
+    var order = {
+        id: orders.length + 1,
+        name: request.body.name,
+        phone: request.body.phone,
+        lessonIds: request.body.lessonIds,
+        createdAt: new Date().toISOString()
+    };
+
+    orders.push(order);
+    console.log("Order received:");
+    console.log("Name:", order.name);
+    console.log("Phone:", order.phone);
+    console.log("Lesson IDs:", order.lessonIds);
+    response.status(201).json(order);
+});
+
+app.get("/orders", function(request, response) {
+    response.json(orders);
+});
+
+// to start the server on port 3k
 app.listen(3000, function() {
 console.log("App started on port 3000");
 });
