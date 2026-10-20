@@ -2,6 +2,13 @@ var express = require("express"); // Requires the Express module
 // Calls the express function to start a new Express application
 var app = express();
 var cors=require("cors");
+
+// tracks incoming requests
+app.use(function(request, response, next) {
+    console.log("Incoming " + request.method + " request for " + request.url);
+    next();
+});
+
 app.use(cors());
 app.use(express.json());
 
