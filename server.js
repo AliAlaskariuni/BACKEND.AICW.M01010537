@@ -1,10 +1,28 @@
+// Loads the configuration from config.env to process.env
+require("dotenv").config({ path: "./config.env" });
+const { MongoClient } = require("mongodb");
+const uri = process.env.MONGODB_URI;
+const client = new MongoClient(uri);
+let db;
+
+async function connectToMongoDB() {
+    try {
+        await client.connect();
+        db = client.db("lesson_store");
+        console.log("You successfully connected to MongoDB!");
+    } catch (err) {
+        console.dir(err);
+    }
+}
+connectToMongoDB();
+
 var express = require("express"); // Requires the Express module
 // Calls the express function to start a new Express application
 var app = express();
-var cors=require("cors");
+var cors = require("cors");
 
 // tracks incoming requests
-app.use(function(request, response, next) {
+app.use(function (request, response, next) {
     console.log("Incoming " + request.method + " request for " + request.url);
     next();
 });
@@ -12,55 +30,81 @@ app.use(function(request, response, next) {
 app.use(cors());
 app.use(express.json());
 
-var orders = [];
-
-//app.use(function(request, response) { // middleware
-//console.log("In comes a request to: " + request.url);
-app.get("/lessons", function(request, response) {
-
-// lessons for front end to pull form
-lessons =  [{ 
-    
-id: 1, subject: "Mathematics", location: "Room A1", price: 25, availability: 5 },
-{ id: 2, subject: "Computer Science", location: "Lab B2", price: 30, availability: 5 },
-{ id: 3, subject: "English Literature", location: "Room C3", price: 20, availability: 5 },
-{ id: 4, subject: "Physics", location: "Science Lab", price: 28, availability: 5 },
-{ id: 5, subject: "Music", location: "Music Room", price: 22, availability: 5 },
-{ id: 6, subject: "Art and Design", location: "Art Studio", price: 24, availability: 5 },
-{ id: 7, subject: "Business Studies", location: "Room D4", price: 26, availability: 5 },
-{ id: 8, subject: "Biology", location: "Science Lab", price: 27, availability: 5 },
-{ id: 9, subject: "History", location: "Room E5", price: 18, availability: 5 },
-{ id: 10, subject: "Drama", location: "Theatre Room", price: 23, availability: 5 }]
-
-
-
-
-// responses with json encoding lessons
-response.json(lessons);
+// GET /lessons - returns all lessons from MongoDB for the front end
+app.get("/lessons", async function (request, response) {
+    try {
+        const results = await db.collection("lessons").find({}).toArray();
+        response.json(results);
+    } catch (err) {
+        console.error(err);
+        response.status(500).json({ error: err.message });
+    }
 });
 
-app.post("/orders", function(request, response) {
-    var order = {
-        id: orders.length + 1,
-        name: request.body.name,
-        phone: request.body.phone,
-        lessonIds: request.body.lessonIds,
-        createdAt: new Date().toISOString()
-    };
+// POST /orders - saves an order and reduces availability of booked lessons
+app.post("/orders", async function (request, response) {
+    try {
+        const { name, phone, lessonIds } = request.body;
 
-    orders.push(order);
-    console.log("Order received:");
-    console.log("Name:", order.name);
-    console.log("Phone:", order.phone);
-    console.log("Lesson IDs:", order.lessonIds);
-    response.status(201).json(order);
+        if (!name || !phone || !Array.isArray(lessonIds) || lessonIds.length === 0) {
+            return response.status(400).json({ error: "Name, phone and at least one lesson are required" });
+        }
+
+        const lessons = db.collection("lessons");
+
+        // count spaces wanted per lesson (handles the same id appearing more than once)
+        const counts = {};
+        lessonIds.forEach(function (id) {
+            counts[id] = (counts[id] || 0) + 1;
+        });
+
+        // reduce availability, only if enough spaces are left
+        const done = [];
+        for (const id of Object.keys(counts)) {
+            const qty = counts[id];
+            const result = await lessons.updateOne(
+                { id: Number(id), availability: { $gte: qty } },
+                { $inc: { availability: -qty } }
+            );
+
+            if (result.modifiedCount === 0) {
+                // undo any lessons already reduced, then fail
+                for (const d of done) {
+                    await lessons.updateOne({ id: Number(d.id) }, { $inc: { availability: d.qty } });
+                }
+                return response.status(409).json({ error: "Lesson " + id + " does not have enough spaces left" });
+            }
+            done.push({ id: id, qty: qty });
+        }
+
+        const order = {
+            name: name,
+            phone: phone,
+            lessonIds: lessonIds,
+            createdAt: new Date().toISOString()
+        };
+        const saved = await db.collection("orders").insertOne(order);
+        console.log("Order saved:", saved.insertedId, order);
+
+        response.status(201).json(order);
+    } catch (err) {
+        console.error(err);
+        response.status(500).json({ error: err.message });
+    }
 });
 
-app.get("/orders", function(request, response) {
-    response.json(orders);
+// GET /orders - returns all saved orders
+app.get("/orders", async function (request, response) {
+    try {
+        const results = await db.collection("orders").find({}).toArray();
+        response.json(results);
+    } catch (err) {
+        console.error(err);
+        response.status(500).json({ error: err.message });
+    }
 });
 
 // to start the server on port 3k
-app.listen(3000, function() {
-console.log("App started on port 3000");
+app.listen(3000, function () {
+    console.log("App started on port 3000");
 });
