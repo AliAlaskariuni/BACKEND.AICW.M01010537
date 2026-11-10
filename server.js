@@ -17,6 +17,7 @@ async function connectToMongoDB() {
 connectToMongoDB();
 
 var express = require("express"); // Requires the Express module
+const port = process.env.PORT || 3000; // Sets the port to the value in the environment variable PORT, or 3000 if not set
 // Calls the express function to start a new Express application
 var app = express();
 var cors = require("cors");
@@ -116,7 +117,7 @@ app.get("/orders", async function (request, response) {
 });
 
 // to start the server on port 3k
-app.listen(3000, function () {
-    console.log("App started on port 3000");
+app.listen(port, function () {
+    console.log("App started on port " + port);
     console.log("working fine");
 });

@@ -15,7 +15,8 @@
   "type": "commonjs",
   "main": "hello.js",
   "scripts": {
-    "test": "node hello.js"
+    "test": "node hello.js",
+    "start": "node server.js"
   },
   "dependencies": {
     "cors": "^2.8.6",
