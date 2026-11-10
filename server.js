@@ -41,6 +41,17 @@ app.get("/lessons", async function (request, response) {
     }
 });
 
+// POST /lessons/reset - puts every lesson back to 5 spaces (called when the site is opened)
+app.post("/lessons/reset", async function (request, response) {
+    try {
+        await db.collection("lessons").updateMany({}, { $set: { availability: 5 } });
+        response.json({ message: "Lesson availability reset" });
+    } catch (err) {
+        console.error(err);
+        response.status(500).json({ error: err.message });
+    }
+});
+
 // POST /orders - saves an order and reduces availability of booked lessons
 app.post("/orders", async function (request, response) {
     try {
@@ -107,4 +118,5 @@ app.get("/orders", async function (request, response) {
 // to start the server on port 3k
 app.listen(3000, function () {
     console.log("App started on port 3000");
+    console.log("working fine");
 });
